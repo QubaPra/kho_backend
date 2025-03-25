@@ -27,4 +27,5 @@ class Trial(models.Model):
     created_time = models.DateTimeField(auto_now_add=True)
     edited_time = models.DateTimeField(auto_now=True)
     status = models.TextField(default='do akceptacji przez opiekuna')
+    report = models.TextField(blank=True)
     

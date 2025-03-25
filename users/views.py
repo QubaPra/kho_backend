@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
 from rest_framework.views import APIView
+from emails.emails import send_verification_email
 
 User = get_user_model()
 
@@ -20,7 +21,11 @@ class RegisterView(generics.CreateAPIView):
         login = request.data.get('login')
         if User.objects.filter(login=login).exists():
             return Response({'error': 'Login już istnieje'}, status=status.HTTP_400_BAD_REQUEST)
-        return super().create(request, *args, **kwargs)
+        
+        response = super().create(request, *args, **kwargs)
+        user_id = response.data['id']
+        send_verification_email(user_id)
+        return response
 
 class LoginView(generics.GenericAPIView):
     serializer_class = UserSerializer
@@ -39,10 +44,14 @@ class LoginView(generics.GenericAPIView):
 
         if not user.check_password(password):
             return Response({'error': 'Hasło jest nieprawidłowe'}, status=status.HTTP_400_BAD_REQUEST)
-
+        
+        
         user = authenticate(username=login, password=password)
         if user is None:
             return Response({'error': 'Wystąpił błąd podczas logowania'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.verified != 'True':
+            return Response({'error': 'Email nie został zweryfikowany'}, status=status.HTTP_400_BAD_REQUEST)
 
         refresh = RefreshToken.for_user(user)
         return Response({
@@ -92,3 +101,28 @@ class ChangePasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"success": "Hasło zostało zmienione"}, status=status.HTTP_200_OK)
+
+class VerifyEmailView(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, user_id, token, *args, **kwargs):
+        try:
+            user = User.objects.get(id=user_id)
+            if user.verified == 'True':
+                return Response({'error': 'Email już został zweryfikowany'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Sprawdź token (możesz użyć własnej logiki do weryfikacji tokena)
+            if token != user.verified:
+                return Response({'error': 'Nieprawidłowy token weryfikacyjny'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.verified = 'True'
+            user.save()
+
+            # Automatyczne logowanie użytkownika
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'Nieprawidłowy użytkownik'}, status=status.HTTP_400_BAD_REQUEST)

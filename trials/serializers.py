@@ -26,7 +26,7 @@ class TrialListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trial
         fields = [
-            'id', 'user', 'team', 'status', 'end_date'
+            'id', 'user', 'team', 'status', 'end_date', 'mentor_name', 'mentor_mail'
         ]
 
     def get_end_date(self, obj):

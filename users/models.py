@@ -33,6 +33,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(max_length=20, choices=ROLES, default='Kandydat')
     last_login = models.DateTimeField(auto_now=True)
     date_joined = models.DateTimeField(auto_now_add=True)
+    verified = models.CharField(max_length=36, default='False')
 
     objects = UserManager()
 
